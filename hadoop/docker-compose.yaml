@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+    namenode:
+        image: hdfs-base-img:v1
+        hostname: namenode
+        container_name: namenode
+        command: ["/bin/bash", "-c", "if [ ! -d /workspace/hadoop/dfs/name/current ]; then hdfs namenode -format; fi && hdfs namenode"]
+        ports:
+            - 9870:9870
+        volumes:
+            - ./data/name-node:/workspace/hadoop/dfs/name
+            - ./config/name-node/hdfs-site.xml:/workspace/hadoop/etc/hadoop/hdfs-site.xml
+            - ./config/name-node/core-site.xml:/workspace/hadoop/etc/hadoop/core-site.xml
+
+    datanode-nodemanager-1:
+        image: hdfs-base-img:v1
+        hostname: datanode-nodemanager-1
+        container_name: datanode-nodemanager-1
+        command: ["/bin/bash", "-c", "hdfs --daemon start datanode; yarn --daemon start nodemanager; sleep 3; tail -f /dev/null"]
+        volumes:
+            - ./data/data-node-1:/workspace/hadoop/data
+            - ./config/data-node&node-manager/core-site.xml:/workspace/hadoop/etc/hadoop/core-site.xml
+            - ./config/data-node&node-manager/hdfs-site.xml:/workspace/hadoop/etc/hadoop/hdfs-site.xml
+            - ./config/data-node&node-manager/mapred-site.xml:/workspace/hadoop/etc/hadoop/mapred-site.xml
+            - ./config/data-node&node-manager/yarn-site.xml:/workspace/hadoop/etc/hadoop/yarn-site.xml
+    datanode-nodemanager-2:
+        image: hdfs-base-img:v1
+        hostname: datanode-nodemanager-2
+        container_name: datanode-nodemanager-2
+        command: ["/bin/bash", "-c", "hdfs --daemon start datanode; yarn --daemon start nodemanager; sleep 3; tail -f /dev/null"]
+        volumes:
+            - ./data/data-node-2:/workspace/hadoop/data
+            - ./config/data-node&node-manager/core-site.xml:/workspace/hadoop/etc/hadoop/core-site.xml
+            - ./config/data-node&node-manager/hdfs-site.xml:/workspace/hadoop/etc/hadoop/hdfs-site.xml
+            - ./config/data-node&node-manager/mapred-site.xml:/workspace/hadoop/etc/hadoop/mapred-site.xml
+            - ./config/data-node&node-manager/yarn-site.xml:/workspace/hadoop/etc/hadoop/yarn-site.xml
+    resourcemanager:
+        image: hdfs-base-img:v1
+        hostname: resourcemanager
+        container_name: resourcemanager
+        command: ["/bin/bash", "-c", "yarn --daemon start resourcemanager && mapred --daemon start historyserver && tail -f /dev/null"]
+        ports:
+            - 8088:8088
+            - 19888:19888
+        volumes:
+            - ./config/resource-manager/core-site.xml:/workspace/hadoop/etc/hadoop/core-site.xml
+            - ./config/resource-manager/mapred-site.xml:/workspace/hadoop/etc/hadoop/mapred-site.xml
+            - ./config/resource-manager/yarn-site.xml:/workspace/hadoop/etc/hadoop/yarn-site.xml
