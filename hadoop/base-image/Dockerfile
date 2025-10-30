@@ -8,18 +8,13 @@ RUN mkdir /workspace && chown admin:admin /workspace
 WORKDIR /workspace
 USER admin
 
-RUN wget https://builds.openlogic.com/downloadJDK/openlogic-openjdk/8u462-b08/openlogic-openjdk-8u462-b08-linux-x64.tar.gz &&\
-    tar -xzvf openlogic-openjdk-8u462-b08-linux-x64.tar.gz &&\
-    mv openlogic-openjdk-8u462-b08-linux-x64 java &&\
-    rm openlogic-openjdk-8u462-b08-linux-x64.tar.gz
+RUN wget https://download.java.net/openjdk/jdk11.0.0.2/ri/openjdk-11.0.0.2_linux-x64.tar.gz &&\
+    tar -xzvf openjdk-11.0.0.2_linux-x64.tar.gz &&\
+    mv jdk-11.0.0.2 java &&\
+    rm openjdk-11.0.0.2_linux-x64.tar.gz
 
 ENV JAVA_HOME=/workspace/java
 ENV PATH=$PATH:$JAVA_HOME/bin
-
-RUN wget https://download.java.net/openjdk/jdk11.0.0.2/ri/openjdk-11.0.0.2_linux-x64.tar.gz &&\
-    tar -xzvf openjdk-11.0.0.2_linux-x64.tar.gz &&\
-    mv jdk-11.0.0.2 java-11 &&\
-    rm openjdk-11.0.0.2_linux-x64.tar.gz
 
 RUN wget https://dlcdn.apache.org/hadoop/common/hadoop-3.3.5/hadoop-3.3.5.tar.gz  &&\
     tar -xzvf hadoop-3.3.5.tar.gz &&\
