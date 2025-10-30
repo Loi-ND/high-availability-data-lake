@@ -8,11 +8,28 @@ RUN mkdir /workspace && chown admin:admin /workspace
 WORKDIR /workspace
 USER admin
 
-RUN wget https://jdk.java.net/java-se-ri/17-MR1/https://download.java.net/openjdk/jdk17.0.0.1/ri/openjdk-17.0.0.1+2_linux-x64_bin.tar.gz &&\
-    tar -xzvf openjdk-17.0.0.1+2_linux-x64_bin.tar.gz &&\
-    mv openjdk-17.0.0.1+2_linux-x64_bin java &&\
-    rm openjdk-17.0.0.1+2_linux-x64_bin.tar.gz
+RUN wget https://download.java.net/openjdk/jdk11.0.0.2/ri/openjdk-11.0.0.2_linux-x64.tar.gz &&\
+    tar -xzvf openjdk-11.0.0.2_linux-x64.tar.gz &&\
+    mv jdk-11.0.0.2 java &&\
+    rm openjdk-11.0.0.2_linux-x64.tar.gz
 
 ENV JAVA_HOME=/workspace/java
 ENV PATH=$PATH:$JAVA_HOME/bin
 
+RUN wget https://archive.apache.org/dist/hive/hive-4.0.1/apache-hive-4.0.1-bin.tar.gz &&\
+    tar -xzvf apache-hive-4.0.1-bin.tar.gz &&\
+    mv apache-hive-4.0.1-bin hive &&\
+    rm apache-hive-4.0.1-bin.tar.gz
+
+ENV HIVE_HOME=/workspace/hive
+ENV PATH=$PATH:$HIVE_HOME/bin
+
+RUN wget https://dlcdn.apache.org/hadoop/common/hadoop-3.3.5/hadoop-3.3.5.tar.gz  &&\
+    tar -xzvf hadoop-3.3.5.tar.gz &&\
+    mv hadoop-3.3.5 hadoop &&\
+    rm hadoop-3.3.5.tar.gz
+
+ENV HADOOP_HOME=/workspace/hadoop
+ENV PATH=$PATH:$HADOOP_HOME/bin:$HADOOP_HOME/sbin
+ENV CLASSPATH=$CLASSPATH:/workspace/hadoop/lib/*:.
+ENV CLASSPATH=$CLASSPATH:/workspace/hive/lib/*:.
