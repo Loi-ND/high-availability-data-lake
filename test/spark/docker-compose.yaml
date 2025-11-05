@@ -1,0 +1,15 @@
+version: "3.9"
+
+services:
+  namenode:
+    image: spark:v0        
+    container_name: spark
+    hostname: spark
+    ports:
+      - "9870:9870"       # HDFS Web UI
+      - "10000:10000"     # HiveServer2
+      - "9083:9083"       # Hive Metastore Thrift
+      - "8088:8088"       # YARN ResourceManager UI
+    volumes:
+      - ./entrypoint.sh:/entrypoint.sh         # mount entrypoint để chỉnh sửa nhanh
+    command: ["/entrypoint.sh"]

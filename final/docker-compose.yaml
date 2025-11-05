@@ -1,0 +1,170 @@
+services:
+    postgres:
+        hostname: postgres
+        container_name: postgres
+        image: postgres:16
+        ports:
+            - 5432:5432
+        environment:
+            PGUSER: pgadmin
+            PGPASSWORD: pgadmin
+            POSTGRES_USER: postgres-admin
+            POSTGRES_PASSWORD: postgres-admin
+            POSTGRES_DB: metastore_db
+    hive-metastore:
+        image: loind31/hive-base-img:v0
+        hostname: hive-metastore
+        container_name: hive-metastore
+        depends_on:
+            - namenode
+            - postgres
+        command: >
+            /bin/bash -c "
+            set -e;
+            mkdir -p /workspace/hive/logs;
+            schematool -dbType postgres -initSchema --verbose || echo 'Schema already initialized';
+            hive --service metastore > /workspace/hive/logs/metastore.log 2>&1 &
+            hive --service hiveserver2 --hiveconf hive.server2.thrift.bind.host=0.0.0.0 > /workspace/hive/logs/hiveserver2.log 2>&1 &
+            tail -f /dev/null
+            "
+        ports:
+            - 9083:9083
+        volumes:
+            - ./hive-hadoop/config/hive-site.xml:/workspace/hive/conf/hive-site.xml
+            - ./hive-hadoop/config/common/hdfs-site.xml:/workspace/hadoop/etc/hadoop/hdfs-site.xml
+            - ./hive-hadoop/config/common/core-site.xml:/workspace/hadoop/etc/hadoop/core-site.xml
+            - ./hive-hadoop/config/common/mapred-site.xml:/workspace/hadoop/etc/hadoop/mapred-site.xml
+            - ./hive-hadoop/config/common/yarn-site.xml:/workspace/hadoop/etc/hadoop/yarn-site.xml
+    namenode:
+        image: loind31/spark-hdfs-base-img:v0
+        hostname: namenode
+        container_name: namenode
+        command: >
+            /bin/bash -c "
+            if [ ! -d /workspace/hadoop/dfs/name/current ]; then
+                echo 'Formatting namenode...';
+                hdfs namenode -format -force;
+            fi;
+
+            echo 'Starting namenode...';
+            hdfs namenode &
+
+            echo 'Waiting for HDFS to be ready...';
+            until hdfs dfsadmin -report > /dev/null 2>&1; do
+                echo 'HDFS not ready yet. Retrying in 3s...';
+                sleep 3;
+            done;
+
+            echo 'HDFS is ready. Creating warehouse and spark-events directories...';
+            hdfs dfs -mkdir -p /workspace/hive/data/warehouse || echo 'Warehouse already exists.';
+            hdfs dfs -chmod 777 /workspace/hive/data/warehouse;
+
+            mkdir -p /workspace/spark-events;
+            echo 'spark.eventLog.enabled true' > /workspace/spark/conf/spark-defaults.conf;
+            echo 'spark.eventLog.dir file:/workspace/spark-events' >> /workspace/spark/conf/spark-defaults.conf;
+            echo 'spark.history.fs.logDirectory file:/workspace/spark-events' >> /workspace/spark/conf/spark-defaults.conf;
+
+            echo 'Starting Spark History Server...';
+            start-history-server.sh &
+
+            echo 'Starting Jupyter Notebook...';
+            nohup jupyter notebook --ip=0.0.0.0 --no-browser > /workspace/jupyter.log 2>&1 &
+
+            echo 'All services started. Keeping container alive...';
+            tail -f /dev/null
+            "
+        ports:
+            - 9870:9870
+            - 8888:8888
+            - 18080:18080
+            - 15002:15002
+        volumes:
+            # - ./hive-hadoop/data/name-node:/workspace/hadoop/dfs/name
+            - ./hive-hadoop/config/spark-defaults.conf:/workspace/spark/conf/spark-defaults.conf
+            - ./hive-hadoop/config/common/hdfs-site.xml:/workspace/hadoop/etc/hadoop/hdfs-site.xml
+            - ./hive-hadoop/config/common/core-site.xml:/workspace/hadoop/etc/hadoop/core-site.xml
+            - ./hive-hadoop/config/common/mapred-site.xml:/workspace/hadoop/etc/hadoop/mapred-site.xml
+            - ./hive-hadoop/config/common/yarn-site.xml:/workspace/hadoop/etc/hadoop/yarn-site.xml
+        depends_on:
+            - datanode-nodemanager-1
+            # - datanode-nodemanager-2
+            - resourcemanager
+    datanode-nodemanager-1:
+        image: loind31/hdfs-base-img:v0
+        hostname: datanode-nodemanager-1
+        container_name: datanode-nodemanager-1
+        command: ["/bin/bash", "-c", "hdfs --daemon start datanode; yarn --daemon start nodemanager; sleep 3; tail -f /dev/null"]
+        volumes:
+            - ./hive-hadoop/config/common/hdfs-site.xml:/workspace/hadoop/etc/hadoop/hdfs-site.xml
+            - ./hive-hadoop/config/common/core-site.xml:/workspace/hadoop/etc/hadoop/core-site.xml
+            - ./hive-hadoop/config/common/mapred-site.xml:/workspace/hadoop/etc/hadoop/mapred-site.xml
+            - ./hive-hadoop/config/common/yarn-site.xml:/workspace/hadoop/etc/hadoop/yarn-site.xml
+    datanode-nodemanager-2:
+        image: loind31/hdfs-base-img:v0
+        hostname: datanode-nodemanager-2
+        container_name: datanode-nodemanager-2
+        command: ["/bin/bash", "-c", "hdfs --daemon start datanode; yarn --daemon start nodemanager; sleep 3; tail -f /dev/null"]
+        volumes:
+            - ./hive-hadoop/config/common/hdfs-site.xml:/workspace/hadoop/etc/hadoop/hdfs-site.xml
+            - ./hive-hadoop/config/common/core-site.xml:/workspace/hadoop/etc/hadoop/core-site.xml
+            - ./hive-hadoop/config/common/mapred-site.xml:/workspace/hadoop/etc/hadoop/mapred-site.xml
+            - ./hive-hadoop/config/common/yarn-site.xml:/workspace/hadoop/etc/hadoop/yarn-site.xml
+    resourcemanager:
+        image: loind31/hdfs-base-img:v0
+        hostname: resourcemanager
+        container_name: resourcemanager
+        command: ["/bin/bash", "-c", "yarn --daemon start resourcemanager && mapred --daemon start historyserver && tail -f /dev/null"]
+        ports:
+            - 8088:8088
+            - 19888:19888
+        volumes:
+            - ./hive-hadoop/config/common/hdfs-site.xml:/workspace/hadoop/etc/hadoop/hdfs-site.xml
+            - ./hive-hadoop/config/common/core-site.xml:/workspace/hadoop/etc/hadoop/core-site.xml
+            - ./hive-hadoop/config/common/mapred-site.xml:/workspace/hadoop/etc/hadoop/mapred-site.xml
+            - ./hive-hadoop/config/common/yarn-site.xml:/workspace/hadoop/etc/hadoop/yarn-site.xml
+        depends_on:
+            - datanode-nodemanager-1
+            - datanode-nodemanager-2
+    
+    trino-coordinator:
+        image: loind31/trino-base-img:v0
+        hostname: trino-coordinator
+        container_name: trino-coordinator
+        ports:
+            - 8080:8080
+        command: ["/bin/bash", "-c", "/workspace/trino/bin/launcher run & wait"]
+        volumes:
+            - ./trino/coordinator:/workspace/trino/etc:ro
+        depends_on:
+            - trino-worker-1
+            - trino-worker-2
+        
+    trino-worker-1:
+        image: loind31/trino-base-img:v0
+        hostname: trino-worker-1
+        container_name: trino-worker-1
+        command: ["/bin/bash", "-c", "/workspace/trino/bin/launcher run & wait"]
+        volumes:
+          - ./trino/worker-1:/workspace/trino/etc:ro
+
+    trino-worker-2:
+        image: loind31/trino-base-img:v0
+        hostname: trino-worker-2
+        container_name: trino-worker-2
+        command: ["/bin/bash", "-c", "/workspace/trino/bin/launcher run & wait"]
+        volumes:
+          - ./trino/worker-2:/workspace/trino/etc:ro
+
+    cloudbeaver:
+        image: dbeaver/cloudbeaver:25.2.1
+        hostname: cloudbeaver
+        container_name: cloudbeaver
+        ports:
+            - 8978:8978 
+        environment:
+            CB_ADMIN_NAME: cbadmin
+            CB_ADMIN_PASSWORD: cbadmin
+        depends_on:
+            - postgres
+            - trino-coordinator
+            - hive-metastore
